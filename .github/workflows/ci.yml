@@ -1,0 +1,62 @@
+name: MLflow CI
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12.7
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.7'
+
+      - name: Install MLflow
+        run: |
+          pip install --upgrade pip
+          pip install mlflow==2.19.0
+
+      # ── Basic + Skilled: jalankan MLflow Project ──────────────────────
+      - name: Run MLflow Project (retraining)
+        run: |
+          mlflow run MLProject --env-manager=local \
+            -P data_dir=aptos_preprocessing \
+            -P epochs=5
+
+      # ── Skilled: simpan artefak hasil training ke GitHub Artifact ─────
+      - name: Upload model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-model
+          path: mlruns/
+          retention-days: 7
+
+      # ── Advance: ambil RUN_ID terakhir untuk build docker ────────────
+      - name: Get latest MLflow run ID
+        id: runid
+        run: |
+          RUN_ID=$(python -c "import mlflow; c=mlflow.tracking.MlflowClient(); r=c.search_runs(experiment_ids=['0'], order_by=['start_time DESC'], max_results=1)[0]; print(r.info.run_id)")
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          echo "RUN_ID = $RUN_ID"
+
+      # ── Advance: login Docker Hub (kredensial dari GitHub Secrets) ────
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: $ secrets.DOCKERHUB_USERNAME 
+          password: $ secrets.DOCKERHUB_TOKEN 
+
+      # ── Advance: build Docker image dari model MLflow & push ─────────
+      - name: Build & Push Docker image
+        run: |
+          mlflow models build-docker \
+            -m "runs:/$ steps.runid.outputs.run_id /model" \
+            -n "$ secrets.DOCKERHUB_USERNAME /aptos-dr"
+          docker push "$ secrets.DOCKERHUB_USERNAME /aptos-dr"

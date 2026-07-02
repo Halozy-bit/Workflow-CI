@@ -1,0 +1,11 @@
+name: aptos-dr
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      data_dir: {type: str, default: "aptos_preprocessing"}
+      epochs: {type: int, default: 5}
+      lr: {type: float, default: 0.001}
+    command: "python modelling.py --data_dir {data_dir} --epochs {epochs} --lr {lr}"
