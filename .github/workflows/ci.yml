@@ -62,9 +62,11 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # ── Advance: build Docker image dari model MLflow & push ─────────
+      # --env-manager local: hindari bug MLflow bootstrap python3.9 di image dasar
       - name: Build & Push Docker image
         run: |
           mlflow models build-docker \
             -m "runs:/${{ steps.runid.outputs.run_id }}/model" \
-            -n "${{ secrets.DOCKERHUB_USERNAME }}/aptos-dr"
+            -n "${{ secrets.DOCKERHUB_USERNAME }}/aptos-dr" \
+            --env-manager local
           docker push "${{ secrets.DOCKERHUB_USERNAME }}/aptos-dr"
